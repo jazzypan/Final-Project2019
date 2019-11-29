@@ -1,0 +1,218 @@
+---
+title: "Untitled"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(ggplot2)
+library(XML)
+library(xml2)
+library(RCurl)
+library(httr)
+library(jsonlite)
+library(lubridate)
+options(stringsAsFactors = F)
+```
+
+
+
+# Parser
+```{r}
+url_1 <- 'https://tcgbusfs.blob.core.windows.net/blobtisv/GetVD.xml.gz'
+url_2 <- 'https://tcgbusfs.blob.core.windows.net/blobtisv/GetVDDATA.xml.gz'
+
+Trafic_Data <- data.frame()
+Device <- data.frame()
+Lane <- data.frame()
+
+for (i in 1:24){
+  
+#### 第一個data
+  doc <- download_xml(url_1) %>% read_xml()
+  
+  xml.doc <- xmlParse(doc)
+  
+  xml.list <- xml.doc %>% 
+    xmlToList()
+  
+  # 取得資料時間
+  time <- xml.list$ExchangeTime
+  
+  # 轉換成dataframe
+  nrow <- xml.list$SectionDataSet %>% 
+    length()
+  trafic <- xml.list$SectionDataSet %>% 
+    unlist() %>% 
+    matrix(nrow = nrow, byrow = T) %>% 
+    as.data.frame()
+  
+  # 改欄位名稱
+  names(trafic) <- xml.list$SectionDataSet$SectionData %>% names()
+  
+  # 加入時間
+  trafic$time <- time
+  
+  # 整入df
+  Trafic_Data <- rbind(Trafic_Data, trafic)
+  
+  
+  
+  
+#### 第二個data
+  doc <- download_xml(url_2) %>% read_xml()  
+  xml.doc <- xmlParse(doc)
+  xml.list <- xml.doc %>% xmlToList()
+  time <- xml.list$ExchangeTime
+
+
+  xml.list <- xml.list[-1]
+
+  # Extract Data
+  for (i in 1:length(xml.list) ){
+    # get the entire information
+    all <- xml.list[i]$VDInfo
+  
+    # extract deivice info
+    device <- all$VDData$VDDevice[1:3] %>% data.frame()
+    device$time <- time
+    Device <- rbind(Device,device)
+  
+    # extract lane data
+    LaneData <- all$VDData$VDDevice[-c(1:3)]
+    id <- device[1] %>% unlist()
+    n <- device[3] %>% as.integer()
+    for (j in 1:n){
+      lane <- LaneData[j] %>% data.frame()
+      lane$DeviceID <- id
+      lane$time <- time
+      Lane <- rbind(Lane, lane)
+    }
+  }
+  
+  
+  
+  
+  Sys.sleep(300)
+}
+
+Trafic_Data %>% write.csv("Data/trafic_data.csv")
+Device %>% write.csv("Data/Device.csv")
+Lane %>% write.csv("Data/Lane.csv")
+
+```
+
+
+
+
+
+
+
+# 台北市道路速率資料
+```{r}
+url <- 'https://tcgbusfs.blob.core.windows.net/blobtisv/GetVD.xml.gz'
+
+# 下載 XML 檔案
+doc <- download_xml(url) %>% read_xml()
+
+# 解析 XML 檔案
+xml.doc <- xmlParse(doc)
+
+# 轉換成list
+xml.list <- xml.doc %>% xmlToList()
+
+# 取得資料時間
+time <- xml.list$ExchangeTime
+
+# 轉換成dataframe
+nrow <- xml.list$SectionDataSet %>% length()
+trafic_data <- xml.list$SectionDataSet %>% unlist() %>% matrix(nrow = nrow, byrow = T) %>% as.data.frame()
+
+# 修改欄位名稱
+names(trafic_data) <- xml.list$SectionDataSet$SectionData %>% names()
+
+# 新增資料時間
+trafic_data$time <- time
+
+trafic_data %>% head()
+
+fname <- str_c('/Users/leo/Desktop/Econ101/資料科學與社會研究/HW/Final_Project', time, ".json")
+trafic_data %>% write.csv('1.csv')
+
+getwd()
+
+```
+
+
+
+# 車輛偵測器(VD)資料
+```{r}
+url <- 'https://tcgbusfs.blob.core.windows.net/blobtisv/GetVDDATA.xml.gz'
+doc <- download_xml(url) %>% read_xml()  
+xml.doc <- xmlParse(doc)
+xml.list <- xml.doc %>% xmlToList()
+time <- xml.list$ExchangeTime
+
+
+xml.list <- xml.list[-1]
+
+
+
+
+ xml.list[2]$VDInfo$VDData$VDDevice[1:3] %>% data.frame()
+
+
+# Extract Data
+Device <- data.frame()
+Lane <- data.frame()
+
+
+for (i in 1:length(xml.list) ){
+  # get the entire information
+  all <- xml.list[i]$VDInfo
+  
+  # extract deivice info
+  device <- all$VDData$VDDevice[1:3]
+  Device <- rbind(Device,device)
+  
+  # extract lane data
+  LaneData <- all$VDData$VDDevice[-c(1:3)]
+  id <- device[1] %>% unlist()
+  n <- device[3] %>% as.integer()
+  for (j in 1:n){
+    lane <- LaneData[j] %>% data.frame()
+    lane$DeviceID <- id
+    Lane <- rbind(Lane, lane)
+  }
+}
+
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
